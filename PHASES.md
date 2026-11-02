@@ -1,101 +1,66 @@
+# SEEKER — Phase Index
 
----
+This file is an index only. The authoritative roadmap is in [`docs/roadmap/MASTER_PLAN.md`](docs/roadmap/MASTER_PLAN.md), with one document per phase under [`docs/roadmap/`](docs/roadmap/).
 
-## 🗺️ Project Phases
+The previous DeepSeek-specific seven-phase draft has been superseded. It described commands under the `deepcode.*` namespace and a single-provider design that no longer match the project direction.
 
-### **Phase 0 — Setup (Day 1)**
-Goal: a runnable "Hello World" extension.
+## Milestones
 
-- [ ] `npm init -y`, add `typescript`, `@types/vscode`, `@types/node`, `esbuild` (or `tsc`).
-- [ ] Create `package.json` with `main`, `engines.vscode`, `activationEvents`, `contributes.commands`.
-- [ ] `src/extension.ts` with `activate()` / `deactivate()`.
-- [ ] Register command `deepcode.hello` that shows a message.
-- [ ] Verify `F5` launches and the command works.
+| Milestone           | Phases | Outcome                                                   |
+| ------------------- | ------ | --------------------------------------------------------- |
+| M0 — Foundation     | 00–03  | Buildable extension, provider abstraction, routing, quota |
+| M1 — Safe agent     | 04–07  | Chat UI, workspace tools, terminal, agent loop            |
+| M2 — Intelligence   | 08–11  | Context, planning, coding/debugging, continuation         |
+| M3 — Hardening      | 12–13  | Git safety, evaluations                                   |
+| M4 — Optional reach | 14–17  | Local models, browser, MCP, multi-agent research          |
+| M5 — Release        | 18–19  | Performance, packaging                                    |
+| Future              | 20     | Deferred expansion                                        |
 
-**Definition of done:** pressing F5 opens the dev host and the command shows a popup.
+## Phases
 
----
+| Phase | Document                                                      | Status      |
+| ----- | ------------------------------------------------------------- | ----------- |
+| 00    | [Repository Audit](docs/roadmap/PHASE_00.md)                  | VERIFIED    |
+| 01    | [Project Foundation](docs/roadmap/PHASE_01.md)                | IMPLEMENTED |
+| 02    | [Free Cloud Model Infrastructure](docs/roadmap/PHASE_02.md)   | IMPLEMENTED |
+| 03    | [Model Router and Quota Primitives](docs/roadmap/PHASE_03.md) | IMPLEMENTED |
+| 04    | [VS Code Chat UI](docs/roadmap/PHASE_04.md)                   | NOT STARTED |
+| 05    | [Workspace Tools](docs/roadmap/PHASE_05.md)                   | NOT STARTED |
+| 06    | [Terminal Integration](docs/roadmap/PHASE_06.md)              | NOT STARTED |
+| 07    | [Autonomous Agent Loop](docs/roadmap/PHASE_07.md)             | NOT STARTED |
+| 08    | [Context Intelligence](docs/roadmap/PHASE_08.md)              | NOT STARTED |
+| 09    | [Planning System](docs/roadmap/PHASE_09.md)                   | NOT STARTED |
+| 10    | [Coding and Debugging Workflows](docs/roadmap/PHASE_10.md)    | NOT STARTED |
+| 11    | [Quota-Aware Continuation](docs/roadmap/PHASE_11.md)          | NOT STARTED |
+| 12    | [Git Integration and Checkpoints](docs/roadmap/PHASE_12.md)   | NOT STARTED |
+| 13    | [Agent Evaluation and Hardening](docs/roadmap/PHASE_13.md)    | NOT STARTED |
+| 14    | [Optional Local Models](docs/roadmap/PHASE_14.md)             | NOT STARTED |
+| 15    | [Browser Automation](docs/roadmap/PHASE_15.md)                | NOT STARTED |
+| 16    | [MCP Integration](docs/roadmap/PHASE_16.md)                   | NOT STARTED |
+| 17    | [Multi-Agent Architecture](docs/roadmap/PHASE_17.md)          | NOT STARTED |
+| 18    | [Performance Optimization](docs/roadmap/PHASE_18.md)          | NOT STARTED |
+| 19    | [Release Engineering](docs/roadmap/PHASE_19.md)               | NOT STARTED |
+| 20    | [Future Expansion](docs/roadmap/PHASE_20.md)                  | DEFERRED    |
 
-### **Phase 1 — API Key + DeepSeek Connection**
-Goal: prove you can call DeepSeek from the extension.
+## Supporting Documents
 
-- [ ] Add `openai` dependency.
-- [ ] Command `deepcode.setApiKey` → prompt for key, store in `context.secrets`.
-- [ ] Command `deepcode.testConnection` → send a "ping" prompt, show response in an information message.
-- [ ] Add config schema for `baseURL`, `model`, `temperature`, `maxTokens`.
-- [ ] Write `src/deepseek/client.ts` wrapping `new OpenAI({ baseURL, apiKey })` with a single `chat(messages, stream)` helper.
+- [Current state audit](docs/audit/CURRENT_STATE.md)
+- [Architecture overview](docs/architecture/OVERVIEW.md)
+- [Provider matrix](docs/providers/PROVIDER_MATRIX.md)
+- [Free-tier policy](docs/providers/FREE_TIER_POLICY.md)
+- [MVP scope](docs/roadmap/MVP_SCOPE.md)
+- [Dependency graph](docs/roadmap/DEPENDENCY_GRAPH.md)
+- [Test strategy](docs/evaluations/TEST_STRATEGY.md)
+- [Quality gates](docs/evaluations/QUALITY_GATES.md)
+- [Architecture decisions](docs/decisions/README.md)
 
-**Definition of done:** you can set a key and get a real answer from DeepSeek in a VS Code notification.
+## Status Legend
 
----
+- **NOT STARTED** — specified, not implemented.
+- **IN PROGRESS** — implementation started.
+- **BLOCKED** — cannot proceed without an external decision or dependency.
+- **IMPLEMENTED** — code exists and local checks pass; phase acceptance is not fully verified.
+- **VERIFIED** — acceptance criteria and definition of done have been met with evidence.
+- **DEFERRED** — intentionally postponed.
 
-### **Phase 2 — Chat Sidebar**
-Goal: persistent chat panel with streaming.
-
-- [ ] Implement a `WebviewViewProvider` for a sidebar view (`deepcode.chatView`).
-- [ ] Build minimal HTML/JS UI: message list, input box, send button, "stop" button.
-- [ ] Wire messages between webview and extension via `postMessage`.
-- [ ] Stream chunks from DeepSeek into the webview as they arrive.
-- [ ] Include the **active file path + selection** as system context automatically.
-- [ ] Add a token-budget guard (truncate or summarize if too long).
-
-**Definition of done:** you can chat with DeepSeek about the currently open file, watching text stream in.
-
----
-
-### **Phase 3 — Inline Edit (the "edit code" core)**
-Goal: select code → describe a change → get a diff → apply.
-
-- [ ] Command `deepcode.editSelection` bound to a keybinding (`ctrl+alt+e` / `cmd+alt+e`).
-- [ ] Capture selection text + surrounding context via `editor.document.getText(range)`.
-- [ ] Prompt template: "Return ONLY the modified code, no fences, no explanation."
-- [ ] Parse the response safely (strip ``` fences if present).
-- [ ] Show a **diff preview**: create a virtual document (`vscode.workspace.openTextDocument({ content })`) and use `vscode.diff` against the original file.
-- [ ] Apply with `WorkspaceEdit` when the user confirms; support undo natively.
-- [ ] Handle multi-line and full-file replacements.
-
-**Definition of done:** select a function, ask "rewrite with error handling", see a diff, click apply, file changes.
-
----
-
-### **Phase 4 — Code Actions & Context Menu**
-Goal: one-click actions without typing prompts.
-
-- [ ] Register `codeActions` provider contributing:
-  - `DeepCode: Explain selection`
-  - `DeepCode: Fix selection`
-  - `DeepCode: Refactor selection`
-  - `DeepCode: Add comments`
-  - `DeepCode: Write unit test`
-- [ ] Each action reuses the Phase 3 diff flow.
-- [ ] Add `DeepCode: Explain File` command (summary in a markdown webview).
-
-**Definition of done:** right-click a selection, pick any action, get a sensible diff or explanation.
-
----
-
-### **Phase 5 — Polish & Safety**
-Goal: make it feel like a real product.
-
-- [ ] Cancellation: `AbortController` wired to a "Stop" button and `vscode.CancellationToken`.
-- [ ] Error handling: bad key, rate limits, network errors → friendly messages.
-- [ ] Inline status bar item showing "DeepCode: ready / busy".
-- [ ] Per-workspace chat history (stored in `context.workspaceState`).
-- [ ] Logging via `vscode.window.createOutputChannel('DeepCode')`.
-- [ ] Telemetry-free (opt-in only if you ever add it).
-
-**Definition of done:** no crashes on the common edge cases; the busy indicator shows during requests.
-
----
-
-### **Phase 6 — Advanced (optional, later)**
-- [ ] **Local model support**: add a "Ollama" provider (`http://localhost:11434`) behind the same client interface.
-- [ ] **Model picker** dropdown in the chat UI.
-- [ ] **Multi-file edit**: let the model propose edits to multiple files and apply as one `WorkspaceEdit`.
-- [ ] **`@` mentions**: type `@file` in chat to add files to context.
-- [ ] **Language Model Chat Provider** integration (`vscode.lm`) so your models appear in VS Code's native model dropdown.
-- [ ] Publish to the VS Code Marketplace (needs a publisher ID, PAT, `vsce`).
-
----
-
-## 📁 Suggested File Structure
+No phase is complete until its acceptance criteria are verified and its documentation matches the implementation.

@@ -1,32 +1,184 @@
 {
-  "name": "Seeker",
+  "name": "seeker",
   "displayName": "Seeker",
-  "description": "AI code editing in VS Code powered by DeepSeek. Select code, describe a change, review the diff, apply.",
+  "description": "Free-cloud-first AI coding agent for Visual Studio Code.",
   "version": "0.0.1",
   "publisher": "your-publisher-id",
+  "license": "MIT",
+  "private": true,
+  "packageManager": "pnpm@12.15.0",
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Other", "Machine Learning"],
-  "keywords": ["ai", "deepseek", "code", "refactor", "edit"],
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "code",
+    "refactor",
+    "edit",
+    "free"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sidalikharef/Seeker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sidalikharef/Seeker/issues"
+  },
+  "homepage": "https://github.com/sidalikharef/Seeker#readme",
   "contributes": {
     "commands": [
       {
-        "command": "Seeker.hello",
-        "title": "Seeker: Hello World"
+        "command": "seeker.hello",
+        "title": "Hello World",
+        "category": "Seeker"
+      },
+      {
+        "command": "seeker.setApiKey",
+        "title": "Set Provider API Key",
+        "category": "Seeker"
+      },
+      {
+        "command": "seeker.clearApiKey",
+        "title": "Clear Provider API Key",
+        "category": "Seeker"
+      },
+      {
+        "command": "seeker.refreshModels",
+        "title": "Refresh Free Models",
+        "category": "Seeker"
+      },
+      {
+        "command": "seeker.testConnection",
+        "title": "Test Provider Connection",
+        "category": "Seeker"
+      },
+      {
+        "command": "seeker.debug.showSelection",
+        "title": "Debug: Show Model Selection",
+        "category": "Seeker"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Seeker",
+      "properties": {
+        "seeker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Seeker. Reserved for future use."
+        },
+        "seeker.providers.enabled": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "openrouter",
+              "groq"
+            ]
+          },
+          "default": [
+            "openrouter",
+            "groq"
+          ],
+          "description": "Free cloud providers enabled for discovery and routing."
+        },
+        "seeker.providers.openrouter.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the OpenRouter provider."
+        },
+        "seeker.providers.groq.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Groq provider."
+        },
+        "seeker.routing.policy": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "free-first",
+            "fast",
+            "coding",
+            "reasoning",
+            "automatic"
+          ],
+          "default": "free-first",
+          "description": "Model routing policy. \"manual\" requires a preferred model."
+        },
+        "seeker.routing.allowPaid": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow paid models. Disabled by default; free models are always preferred by free-first."
+        },
+        "seeker.routing.maxCostUsdPerTask": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Maximum estimated USD per one million tokens for paid models. Zero disables paid selection."
+        },
+        "seeker.routing.preferredProvider": {
+          "type": "string",
+          "enum": [
+            "",
+            "openrouter",
+            "groq"
+          ],
+          "default": "",
+          "description": "Optional preferred provider. Empty means any provider."
+        },
+        "seeker.routing.preferredModel": {
+          "type": "string",
+          "default": "",
+          "description": "Optional preferred model ID. Required for the manual policy."
+        },
+        "seeker.routing.excludedProviders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "openrouter",
+              "groq"
+            ]
+          },
+          "default": [],
+          "description": "Providers that routing must never select."
+        }
+      }
+    }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "pnpm build",
+    "build": "tsc -p ./",
+    "compile": "pnpm build",
+    "watch": "tsc -watch -p ./",
+    "typecheck": "tsc -p ./ --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "vitest run test/unit",
+    "test:watch": "vitest",
+    "test:extension": "pnpm build && node ./test/extension/runTest.js",
+    "package": "pnpm build && vsce package --no-dependencies",
+    "test:integration": "vitest run test/integration"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.90.0",
-    "typescript": "^5.4.0"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.0",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
   }
 }
