@@ -30,6 +30,7 @@ Build SEEKER as a free-cloud-first, provider-independent autonomous coding agent
   - Real broken-TypeScript fixture: read, approved patch, real `tsc --noEmit`, verification evidence, denied patch, denied command.
 - Prepared the final manual VS Code UI acceptance checklist covering Ask, Plan, Build, Debug, Review, exact-command approval, Run Once, Allow for Session, and Deny.
 - Created the minimal safe TypeScript-error workspace at `/tmp/seeker-final-acceptance` and reproduced the expected TypeScript error with repository TypeScript.
+- Created the final first-build manual testing guide at `docs/testing/FIRST_BUILD_TEST.md`; automated quality gates, VSIX artifact, and expected TypeScript error were validated.
 - Updated Phase 06/07, implementation status, phase index, README, and this handoff.
 
 ## Files Added or Changed
@@ -54,6 +55,7 @@ Build SEEKER as a free-cloud-first, provider-independent autonomous coding agent
 - `src/extension/agent-runner.ts`.
 - `src/extension/chat-service.ts`, `src/extension/chat-view.ts`, `src/extension/webview/protocol.ts`.
 - `src/webview/main.ts`, `src/extension.ts`.
+- `docs/testing/FIRST_BUILD_TEST.md` — final first-build manual testing guide.
 
 ### Tests
 

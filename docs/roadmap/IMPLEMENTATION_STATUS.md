@@ -265,6 +265,7 @@ Status: **IMPLEMENTED (automated verification passing; live provider and actual 
 - [x] Unit tests for modes, verification, session persistence, agent runner tool-name mapping/collisions, chat mode behavior, Build-mode tool execution/labels, and approval scoping.
 - [x] Integration tests for success, denial, invalid arguments, quota pause, cancellation, duplicate suppression, iteration bounds, and a real broken-TypeScript fixture with actual `tsc --noEmit` evidence.
 - [x] Extension-host tests for mocked webview initialization, mode changes, chat submissions, invalid-message handling, and real host tool flows with injected approval/preview callbacks.
+- [x] Created `docs/testing/FIRST_BUILD_TEST.md` with the first-build manual testing guide, including VSIX installation, free provider configuration, all five modes, permission behavior, TypeScript repair task, and troubleshooting.
 
 ### Tests Executed
 
