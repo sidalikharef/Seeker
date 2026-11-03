@@ -54,6 +54,7 @@ export default tseslint.config(
         __dirname: 'readonly',
         process: 'readonly',
         console: 'readonly',
+        setTimeout: 'readonly',
       },
     },
   },

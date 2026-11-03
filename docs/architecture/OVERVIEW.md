@@ -35,12 +35,28 @@ SEEKER is a provider-independent autonomous coding agent hosted in VS Code. It m
 
 ## 3. Architectural Layers
 
-### 3.1 Presentation layer (`src/extension/webview`, `src/extension/`)
+### 3.1 Presentation layer (`src/extension/webview`, `src/extension/`, `src/webview/`)
 
 - Owns VS Code API usage: commands, views, webview, SecretStorage, workspace, terminals.
 - Converts VS Code events into core events and core events into UI messages.
 - Contains no agent policy and no provider-specific logic.
 - Never receives API keys.
+
+Current Phase 04 implementation:
+
+- `src/extension/chat-view.ts` owns the webview lifecycle, nonce CSP, validation, and native commands.
+- `src/extension/chat-service.ts` composes routing, adapters, credentials, quota, streaming, cancellation, and workspace-state persistence.
+- `src/extension/webview/protocol.ts` is the authoritative validated host/webview contract.
+- `src/webview/main.ts` and `media/webview.css` render text, fenced code, model controls, routing settings, errors, and credential actions.
+- The webview is a renderer only. It has no network access, no API keys, and no raw HTML rendering of model output.
+- Only Ask mode is exposed until tools, permissions, and mode-specific backends exist.
+
+Current Phase 05–06 implementation:
+
+- `src/tools/` owns the stable tool contracts, schema validation, registry, dispatcher, filesystem/search/Git/diagnostics tools, patch application, and guarded terminal execution.
+- `src/security/` owns workspace path canonicalization, exclusions, glob matching, command risk classification, child-environment filtering, and audit logging.
+- `src/extension/workspace-host.ts` composes tools with VS Code-specific diff preview, diagnostics, file audit storage, and terminal output-channel display. It defaults to read-only permissions and denies privileged actions in untrusted workspaces.
+- The extension activates the host with 10 tools in read-only Ask mode. Terminal execution is mode-gated to Build/Debug and is not exposed through the UI yet; no autonomous tool loop exists.
 
 ### 3.2 Application layer (`src/core/`)
 
@@ -70,15 +86,20 @@ src/
 ├── extension.ts                 # activation, composition root
 ├── extension/
 │   ├── commands.ts
-│   ├── chat-view.ts             # WebviewViewProvider
+│   ├── chat-service.ts          # session/routing/streaming orchestration
+│   ├── chat-view.ts             # WebviewViewProvider and CSP HTML
+│   ├── provider-settings.ts     # enabled-provider resolution
 │   ├── webview/
-│   │   ├── main.ts
-│   │   ├── main.css
-│   │   └── protocol.ts          # shared message types
+│   │   ├── protocol.ts          # validated public message contract
+│   │   └── security.ts          # CSP builder
 │   ├── secrets.ts               # SecretStorage wrapper
-│   ├── workspace-host.ts        # workspace file operations
-│   ├── terminal-host.ts         # child process execution
+│   ├── workspace-host.ts        # tool composition, diff/diagnostics/output adapters
 │   └── diagnostics.ts
+├── webview/
+│   └── main.ts                  # standalone renderer compiled to out/webview/
+├── media/
+│   ├── webview.css              # theme-aware sidebar styles
+│   └── seeker.svg
 ├── core/
 │   ├── agent-loop.ts
 │   ├── session-manager.ts
@@ -178,9 +199,12 @@ export interface Tool<Input, Output> {
   outputSchema: JsonSchema;
   timeoutMs: number;
   maxResultBytes: number;
+  idempotent: boolean;
   execute(input: Input, ctx: ToolContext): Promise<ToolResult<Output>>;
 }
 ```
+
+`ToolContext` supplies workspace roots, an abort signal, audit logger, permission manager, mode, optional sensitive-path override, approval callback, and diff previewer. The dispatcher enforces schema validity, mode eligibility, permissions, timeouts, cancellation, and auditing before results reach the agent.
 
 ## 6. Primary Data Flow
 
@@ -189,11 +213,11 @@ export interface Tool<Input, Output> {
 3. Context engine builds a bounded context package.
 4. Router selects a provider/model using capability, availability, quota, and policy.
 5. Provider adapter streams normalized events.
-6. Agent loop validates any tool calls, checks permissions, executes tools, and appends observations.
-7. Loop continues until completion, cancellation, budget exhaustion, or a non-recoverable error.
-8. Verification engine checks acceptance criteria using tool evidence.
-9. UI receives structured events; changes are shown as diffs before application where required.
-10. Session state and checkpoints are persisted.
+6. In the current implementation, the chat service streams text directly to the webview and stops at completion, cancellation, or error. Workspace tools exist and are callable through `WorkspaceToolHost`, but the chat UI does not yet invoke them.
+7. Phase 07 will parse tool calls, route them through the dispatcher, append observations, and continue until completion, cancellation, budget exhaustion, or a non-recoverable error.
+8. Later phases verify acceptance criteria using tool evidence.
+9. UI receives structured events; future changes must be shown as diffs before application.
+10. Chat messages and model selection persist in workspace state. Future session checkpoints must not persist credentials.
 
 ## 7. Non-Goals for the MVP
 

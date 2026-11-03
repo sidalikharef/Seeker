@@ -22,7 +22,9 @@
     "edit",
     "free"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:seeker.chat"
+  ],
   "main": "./out/extension.js",
   "icon": "media/icon.png",
   "repository": {
@@ -151,6 +153,25 @@
           "description": "Providers that routing must never select."
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "seeker",
+          "title": "Seeker",
+          "icon": "media/seeker.svg"
+        }
+      ]
+    },
+    "views": {
+      "seeker": [
+        {
+          "id": "seeker.chat",
+          "name": "Chat",
+          "type": "webview",
+          "contextualTitle": "Seeker"
+        }
+      ]
     }
   },
   "scripts": {

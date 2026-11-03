@@ -2,7 +2,7 @@
 
 SEEKER is an open-source, free-cloud-first AI coding agent for Visual Studio Code.
 
-Phases 02–03 establish the free-cloud provider layer and deterministic model router. The extension can store API keys securely, discover models, stream chat completions, normalize provider errors, test connections, select models by free-tier policy and capability, and track quota/health state. No chat UI, tool execution, or autonomous agent loop is implemented yet, and the extension does not claim those features.
+Phases 02–07 establish the free-cloud provider layer, deterministic model router, secure sidebar chat, workspace-bounded tooling, a guarded terminal executor, and a bounded autonomous agent loop. The extension can store API keys securely, discover models, stream chat completions, normalize provider errors, test connections, select models by free-tier policy and capability, track quota/health state, inspect/edit workspace files, and run approved argv-based commands with environment filtering, output caps, timeouts, and process-tree cancellation. Build and Debug modes run a bounded tool loop with exact-command approval, verification evidence, cancellation, and quota pausing. Live-provider and actual rendered-UI acceptance runs remain unverified; automated extension-host tests use mocked webview interactions and injected approval callbacks, and no screen sharing or OS screen capture is required.
 
 ## Direction
 
@@ -21,6 +21,7 @@ SEEKER does not claim unlimited free inference. Free tiers have rate limits, quo
 - Stores OpenRouter and Groq API keys in VS Code SecretStorage.
 - Discovers models from OpenRouter and Groq and caches results for six hours.
 - Streams OpenAI-compatible chat completions with tool-call deltas, usage, and cancellation.
+- Runs a bounded Ask/Plan/Review/Build/Debug agent loop with per-mode tool permissions.
 - Normalizes auth, quota, rate-limit, timeout, network, and protocol errors.
 - Tests provider connections and reports free-tier status when available.
 - Maintains a model registry with tri-state capabilities, discovery merging, overrides, and conflict reporting.
@@ -28,6 +29,16 @@ SEEKER does not claim unlimited free inference. Free tiers have rate limits, quo
 - Rejects paid or unknown-tier models by default; paid selection requires `allowPaid`, a non-zero cost cap, and known pricing within the cap.
 - Tracks request/token quota, rate limits, retry backoff, daily exhaustion, authentication failures, and provider health.
 - Emits explainable `model.selected`, `model.fallback`, and `quota.warning` events.
+- Opens a secure SEEKER sidebar with real streaming chat, cancellation, retry, model selection, availability reasons, and routing controls.
+- Persists chat messages and model selection in workspace state without persisting credentials.
+- Enforces a nonce-based webview CSP, no webview network access, validated messages, and text-only model output.
+- Provides typed, permissioned tools for file read/list/write, unified patches with SHA-256 conflict checks, text/file search, diagnostics, read-only Git status/diff, and argv-based terminal execution without a shell.
+- Rejects path traversal, symlink escapes, binary files, oversized results, secret paths, and untrusted-workspace privileged actions.
+- Records tool argument hashes and outcomes in an audit log without storing raw arguments; terminal audit details store a redacted command and output hash, not raw output.
+- Uses VS Code diff previews before file writes/patches and keeps Ask/Plan/Review read-only.
+- Requires modal approval for terminal commands, with run-once or exact-command session-scoped approval bound to the executable, arguments, cwd, and workspace.
+- Persists agent sessions and append-only events, labels unverified completion, and does not replay completed side effects after failures.
+- Exposes Ask, Plan, Review, Build, and Debug modes in the sidebar.
 - Registers `seeker.setApiKey`, `seeker.clearApiKey`, `seeker.refreshModels`, `seeker.testConnection`, and `seeker.debug.showSelection`.
 - Declares provider enable/disable and routing settings.
 - Builds reproducibly with pnpm and strict TypeScript.

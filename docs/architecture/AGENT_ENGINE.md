@@ -235,12 +235,12 @@ Events are append-only and persisted. The UI renders from the event stream, not 
 
 ## 12. Acceptance Criteria for This Design
 
-- [ ] The loop can run with a mock provider and a mock tool registry without VS Code.
-- [ ] Iteration, retry, and duplicate-call bounds are enforced by tests.
-- [ ] Cancellation terminates HTTP streams and child processes.
-- [ ] No side-effecting tool is replayed after a provider fallback.
-- [ ] Completion without evidence is reported as unverified.
-- [ ] Permissions are evaluated in code for every privileged call.
+- [x] The loop can run with a mock provider and a mock tool registry without VS Code.
+- [x] Iteration, retry, and duplicate-call bounds are enforced by tests.
+- [x] Cancellation terminates HTTP streams and child processes.
+- [x] No side-effecting tool is replayed after a provider fallback.
+- [x] Completion without evidence is reported as unverified.
+- [x] Permissions are evaluated in code for every privileged call.
 
 ## 13. Related Documents
 

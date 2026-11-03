@@ -6,6 +6,8 @@ Provide a typed, permissioned, auditable interface between model output and priv
 
 Every tool has a stable ID, a JSON Schema, a permission class, timeouts, output limits, and structured errors.
 
+**Implementation status (Phase 06 backend, 2026-11-02):** file read/list/write/patch, search, diagnostics, read-only Git, and guarded terminal execution are implemented and locally validated. The VS Code terminal approval UI and the agent loop that calls these tools remain future work.
+
 ## 2. Tool Contract
 
 ```ts
@@ -27,6 +29,11 @@ export interface ToolContext {
   signal: AbortSignal;
   logger: AuditLogger;
   permissions: PermissionManager;
+  mode?: ToolMode;
+  allowSensitivePaths?: boolean;
+  approve?: (request: PermissionRequest) => Promise<boolean>;
+  preview?: DiffPreviewer;
+  now?: () => number;
 }
 
 export type ToolResult<T> =
@@ -54,7 +61,7 @@ export interface ToolError {
 | `filesystem.apply_patch` | write | no | Apply a validated unified diff |
 | `search.text` | read | yes | Search file contents |
 | `search.files` | read | yes | Search file names |
-| `terminal.execute` | execute | no | Run an approved command |
+| `terminal.execute` | execute | no | Run an approved argv command without a shell |
 | `git.status` | read | yes | Show working tree status |
 | `git.diff` | read | yes | Show diff |
 | `diagnostics.get` | read | yes | Get diagnostics for files |
@@ -90,7 +97,11 @@ const filesystemRead = {
 All path-taking tools use a shared resolver:
 
 ```ts
-resolveWorkspacePath(inputPath, roots, { mustExist, followSymlinks: true }): ResolvedPath
+resolveWorkspacePath(
+  inputPath,
+  roots,
+  { mustExist, followSymlinks: true, patterns }
+): Promise<PathResolution>
 ```
 
 Rules:
@@ -100,8 +111,10 @@ Rules:
 - Reject paths outside all roots.
 - Reject symlinks escaping roots.
 - Reject excluded secret paths for read and write unless explicitly overridden by the user.
+- Apply default secret/build exclusions plus optional `.seekerignore` patterns.
 - Normalize separators for cross-platform behavior.
 - Store workspace-relative paths in results where possible.
+- Treat invalid paths, missing paths, and symlink escapes as structured failures, never crashes.
 
 ## 6. Reading
 
@@ -143,23 +156,26 @@ Rules:
 - Parse the patch; reject malformed hunks.
 - Reject hunks that do not apply cleanly; do not fuzzy-match.
 - Reject patches touching excluded paths.
-- Apply atomically; write to a temp file, then rename.
+- Apply atomically; write to a temp file in the same directory, flush, then rename.
 - Return the new hash and a summary of hunks applied.
 - If the file was modified by the user after the read, return `conflict` with both hashes.
+- Preserve CRLF line endings for files that use them.
+- Reject renames, deletions, binary patches, multi-file patches, fuzzy context, and malformed hunks.
 
 ### 7.3 Diff preview
 
-The UI shows a VS Code diff or a rendered unified diff before applying, depending on mode and policy. Build mode may auto-apply within approved roots if the user enabled "auto-apply low-risk edits"; default is preview.
+`VscodeDiffPreviewer` opens a VS Code diff and asks for modal confirmation before write/patch. If the preview is rejected, the file is not modified. Auto-apply is not implemented; the default is preview.
 
 ## 8. Search
 
 - `search.text`: regex or literal, case options, glob include/exclude, max results.
 - `search.files`: glob matching on paths.
-- Use ripgrep if available, otherwise a bounded Node implementation.
+- The current implementation uses a bounded Node traversal. Ripgrep is an optional future performance optimization, not required for correctness.
 - Never traverse `node_modules`, `.git`, build output, or excluded directories.
-- Cap results (for example, 200 matches) and bytes.
+- Cap results (default 200, max 500), scanned files/bytes, file size, and result bytes.
 - Return file path, line, column, and a short snippet.
 - Respect `.seekerignore` and default secret exclusions.
+- Skip symlinks and binary files.
 
 ## 9. Terminal Execution
 
@@ -173,37 +189,41 @@ export interface TerminalExecuteInput {
 }
 ```
 
-Implementation requirements:
+Implemented behavior:
 
-- `spawn(file, args, { shell: false, cwd, env })`.
-- Validate `cwd` inside workspace roots.
-- Strip provider keys and other secrets from the environment.
-- Capture stdout/stderr with byte caps.
-- Kill the process group on timeout or cancellation.
-- Return exit code, signal, duration, and truncated output.
-- Record the exact command in the audit log.
-- Require permission before execution.
-- Deny dangerous patterns even with approval (see [SECURITY.md](SECURITY.md)).
-- Do not run interactive commands; detect TTY requirements and fail clearly.
+- `spawn(file, args, { shell: false, cwd, env })`; argv is never re-parsed by a shell.
+- `cwd` is resolved through the workspace path guard. Bare executables must be allowlisted; workspace-relative scripts are allowed; absolute outside-workspace executables must be allowlisted system tools.
+- The child environment inherits a small base allowlist; secret, loader-injection, shell-startup, and Git-config-injection variables are rejected.
+- stdout is capped at 256 KiB and stderr at 128 KiB; truncation is explicit.
+- Default timeout is 120 s, maximum 600 s. Timeout/cancel kills the process group on POSIX (`SIGTERM`, then `SIGKILL` after a grace period); Windows uses `taskkill /T /F`.
+- Structured results include exit code, signal, duration, output, byte counts, and truncation flags.
+- `terminal.execute` requires the `execute` permission and is available in Build/Debug modes; Ask/Plan/Review remain read-only.
+- Audit details store a redacted command and output hash, not raw output.
+- Known interactive/TTY-dependent commands are rejected with guidance.
+- Dangerous commands are denied even with approval (see [SECURITY.md](SECURITY.md)).
+- The current host remains Ask/read-only, so terminal approval UI and chat integration are still pending.
 
 ## 10. Git Tools
 
-MVP:
+MVP (implemented):
 
-- `git.status`: parse porcelain output; report branch, ahead/behind, staged/unstaged/untracked.
-- `git.diff`: support `--cached`, path filters, and stat mode; cap output.
+- `git.status`: parse porcelain v1 output; report branch plus staged/unstaged/untracked paths.
+- `git.diff`: support `--cached`, path filters, and output caps; exclude default secret paths.
+- Detect whether the workspace is a Git repository; do not assume.
 
 Rules:
 
 - Read-only in the MVP.
-- Detect whether the workspace is a Git repository; do not assume.
+- Use `execFile('git', args)`, never a shell or concatenated command string.
+- Resolve and validate the working directory inside a workspace root.
 - Never run `git reset --hard` or `git clean -fdx` as rollback.
 - Commits, pushes, and branch changes require a separate, explicit phase and approval.
+- Ahead/behind counts are not exposed yet.
 
 ## 11. Diagnostics
 
-- Use `vscode.languages.getDiagnostics()` in the extension host.
-- Filter by path and severity.
+- The tool layer uses a VS Code-free `DiagnosticsReader`; `VscodeDiagnosticsReader` calls `vscode.languages.getDiagnostics()` in the extension host.
+- Filter by path, result size, and the same secret/build exclusions used by file tools.
 - Return code, message, range, severity, and source.
 - Do not claim a build passed based on diagnostics alone; diagnostics may be stale or partial.
 
@@ -237,10 +257,11 @@ export interface AuditEntry {
   durationMs: number;
   resultBytes?: number;
   errorCode?: string;
+  details?: Record<string, unknown>;
 }
 ```
 
-Do not store full secret-bearing arguments. Store hashes and redacted summaries.
+Do not store full secret-bearing arguments. Store hashes and redacted summaries. Terminal audit details store a redacted command/args, resolved cwd, exit code, signal, duration, byte counts, truncation flags, and SHA-256 of captured output; raw stdout/stderr are not stored.
 
 ## 14. Error Semantics
 
@@ -265,14 +286,14 @@ Do not add a tool that bypasses the dispatcher.
 
 ## 16. Acceptance Criteria
 
-- [ ] Invalid arguments never reach execution.
-- [ ] Path traversal and symlink escapes are rejected by tests.
-- [ ] Patch application fails closed on hash mismatch.
-- [ ] Terminal execution does not use a shell by default.
-- [ ] Cancellation kills child processes.
-- [ ] Output limits are enforced and marked when truncated.
-- [ ] Every privileged action produces an audit entry.
-- [ ] Tool results are structured and model-readable.
+- [x] Invalid arguments never reach execution.
+- [x] Path traversal and symlink escapes are rejected by tests.
+- [x] Patch application fails closed on hash mismatch.
+- [x] Terminal execution does not use a shell by default.
+- [x] Cancellation kills the POSIX process tree; Windows tree kill is implemented but unverified.
+- [x] Output limits are enforced and marked when truncated for workspace tools.
+- [x] Every dispatched tool action produces an audit entry.
+- [x] Tool results are structured and model-readable.
 
 ## 17. Related Documents
 

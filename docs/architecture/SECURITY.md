@@ -85,8 +85,10 @@ No secret or raw provider payload crosses this boundary.
 - Reject device files, FIFOs, sockets, and oversized files.
 - Treat case-insensitivity correctly on Windows/macOS.
 - Do not follow `..` segments without canonicalization.
-- Writes are atomic: write to a temp file in the same directory, fsync where supported, then rename.
+- Writes are atomic: write to a temp file in the same directory, fsync where supported, then rename. Temporary files are removed on failure.
 - Before writing, verify the file's current content hash matches the expected base version; otherwise report a conflict and do not overwrite.
+- The Phase 05 implementation resolves paths through `src/security/paths.ts`, rejects symlink escapes for existing and new files, and applies default secret/build exclusions plus optional `.seekerignore` discovery patterns.
+- `WorkspaceToolHost` defaults to read-only tools and wraps its permission manager in `TrustAwarePermissionManager`; untrusted workspaces deny write/execute/network/destructive actions even if a permissive delegate is supplied.
 
 ## 6. Command Execution
 
@@ -109,6 +111,10 @@ Requirements:
    - package publishing, deployment, or payment commands
 10. Installing dependencies requires approval and shows the exact command.
 11. Commands run in a VS Code terminal or child process; the choice is an implementation detail, but output capture and cancellation are mandatory.
+12. Phase 06 implementation: `terminal.execute` uses `spawn(file, args, { shell: false })`, validates cwd through the workspace path guard, allowlists executables and child environment variables, caps stdout/stderr, enforces 120 s/600 s timeouts, and terminates the POSIX process group on timeout/cancel. Known interactive commands are rejected.
+13. The terminal backend is mode-gated to Build/Debug and requires the `execute` permission. The current host is Ask/read-only; the approval dialog and session-scoped allowlist are still pending.
+14. Command risk classification blocks shells, privilege escalation, destructive Git, publishing/deployment, dangerous recursive deletion, device writes, fork bombs, secret-path arguments, `find -exec`, and long-running watchers. Dependency installs, on-demand package execution, network downloads, and network Git are high risk.
+15. This is not an OS sandbox. An approved allowlisted executable can access host paths; approval and blocked secret-path patterns mitigate but do not eliminate that risk.
 
 ## 7. Permission Model
 
@@ -116,17 +122,13 @@ Requirements:
 export type PermissionClass = 'read' | 'write' | 'execute' | 'network' | 'destructive';
 
 export interface PermissionRequest {
-  id: string;
   sessionId: string;
   toolId: string;
   permission: PermissionClass;
   summary: string;             // user-readable
-  details: {
-    paths?: string[];
-    command?: { file: string; args: string[] };
-    diff?: string;
-  };
   risk: 'low' | 'medium' | 'high';
+  paths?: string[];
+  diff?: string;
 }
 
 export type PermissionDecision = 'allow' | 'deny' | 'ask';
@@ -148,6 +150,8 @@ Default policy:
 - A user may grant a session-scoped or workspace-scoped allow rule, but never for `destructive` without explicit confirmation.
 - Approval UI shows the exact command or diff, not a model-written summary alone.
 - Denials are returned to the model as observations; the agent must adapt.
+- Phase 05 implements the dispatcher, read-only default, trust-aware denial, audit logging, and diff preview. Phase 06 adds the guarded terminal backend and command/env policy. The mode-specific approval UI and autonomous permission flow remain open.
+- Tool results are untrusted input; the agent must not treat model- or file-derived text as permission to bypass these controls.
 
 ## 8. Prompt Injection Defenses
 

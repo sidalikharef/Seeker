@@ -6,7 +6,7 @@ Give the agent safe, bounded, typed access to workspace files, search, diagnosti
 
 ## Current Repository State
 
-No tool system, file access, search, diagnostics, or Git integration exists.
+Implemented and locally validated. Typed, workspace-bounded tools now cover filesystem read/list/write/patch, text and file search, read-only Git status/diff, diagnostics, audit logging, permission checks, and diff preview. The tools are composed by `WorkspaceToolHost` and instantiated during extension activation in read-only Ask mode. Terminal execution remains Phase 06.
 
 ## Dependencies
 
@@ -37,32 +37,33 @@ No tool system, file access, search, diagnostics, or Git integration exists.
 
 ## Implementation Tasks
 
-- [ ] Create `src/tools/types.ts` with `Tool`, `ToolContext`, `ToolResult`, `ToolError`.
-- [ ] Create `src/tools/registry.ts` with mode-aware filtering.
-- [ ] Create `src/security/paths.ts` with `resolveWorkspacePath`.
-- [ ] Create `src/tools/filesystem.ts`:
-  - [ ] `filesystem.read` with ranges, byte cap, hash, encoding.
-  - [ ] `filesystem.list` with depth and ignore rules.
-  - [ ] `filesystem.write` with `expectedSha256` for existing files.
-- [ ] Create `src/tools/patch.ts`:
-  - [ ] Parse unified diffs.
-  - [ ] Verify `expectedSha256`.
-  - [ ] Apply hunks atomically; reject fuzzy matches.
-  - [ ] Return new hash and hunk summary.
-- [ ] Create `src/tools/search.ts`:
-  - [ ] literal and regex text search
-  - [ ] file glob search
-  - [ ] ignore rules and result caps
-  - [ ] prefer ripgrep when available
-- [ ] Create `src/tools/git.ts`:
-  - [ ] `git.status` porcelain parsing
-  - [ ] `git.diff` with path filters and byte cap
-  - [ ] detect non-Git workspaces
-- [ ] Create `src/tools/diagnostics.ts` using `vscode.languages.getDiagnostics()`.
-- [ ] Create `src/security/exclusions.ts` for default secret and build exclusions.
-- [ ] Create an audit logger interface and a local implementation.
-- [ ] Add diff preview integration for write/patch.
-- [ ] Add tests for traversal, symlinks, binary files, size limits, patch conflicts, and search caps.
+- [x] Create `src/tools/types.ts` with `Tool`, `ToolContext`, `ToolResult`, `ToolError`, permissions, audit, and preview contracts.
+- [x] Create `src/tools/registry.ts` with mode-aware filtering.
+- [x] Create `src/tools/schema.ts` for runtime argument validation and `src/tools/dispatcher.ts` for validation, permissions, timeouts, cancellation, and audit.
+- [x] Create `src/security/paths.ts` with async `resolveWorkspacePath`, canonical roots, multi-root support, and symlink-escape rejection.
+- [x] Create `src/tools/filesystem.ts`:
+  - [x] `filesystem.read` with ranges, byte cap, hash, and binary rejection.
+  - [x] `filesystem.list` with depth, `.seekerignore`, and ignore rules.
+  - [x] `filesystem.write` with `expectedSha256` for existing files.
+- [x] Create `src/tools/patch.ts`:
+  - [x] Parse unified diffs.
+  - [x] Verify `expectedSha256`.
+  - [x] Apply hunks atomically; reject fuzzy matches.
+  - [x] Return new hash and hunk summary.
+- [x] Create `src/tools/search.ts`:
+  - [x] literal and regex text search
+  - [x] file glob search
+  - [x] ignore rules and result caps
+  - [x] bounded Node implementation (ripgrep optimization remains a Phase 18 performance option, not a correctness dependency)
+- [x] Create `src/tools/git.ts`:
+  - [x] `git.status` porcelain parsing
+  - [x] `git.diff` with path filters and byte cap
+  - [x] detect non-Git workspaces
+- [x] Create `src/tools/diagnostics.ts` using a `DiagnosticsReader`, with `vscode.languages.getDiagnostics()` bridged in the extension host.
+- [x] Create `src/security/exclusions.ts` for default secret and build exclusions.
+- [x] Create an audit logger interface and in-memory/file implementations.
+- [x] Add diff preview integration for write/patch.
+- [x] Add tests for traversal, symlinks, binary files, size limits, patch conflicts, and search caps.
 
 ## Files and Packages Affected
 
@@ -148,23 +149,36 @@ export interface GitStatusResult {
 
 ## Test Plan
 
-- Unit: path resolver rejects `../`, absolute escapes, and symlink escapes.
-- Unit: secret exclusions are enforced for read/search/list.
-- Unit: patch applies cleanly and rejects mismatched hashes.
-- Unit: patch rejects fuzzy or malformed hunks.
-- Unit: search caps results and respects ignores.
-- Unit: binary file read is rejected.
-- Unit: Git parsing handles non-repo, clean, and dirty states.
-- Integration: diff preview matches applied content.
+- [x] Unit: path resolver rejects `../`, absolute escapes, and symlink escapes.
+- [x] Unit: secret exclusions are enforced for read/search/list.
+- [x] Unit: patch applies cleanly and rejects mismatched hashes.
+- [x] Unit: patch rejects fuzzy or malformed hunks.
+- [x] Unit: search caps results and respects ignores.
+- [x] Unit: binary file read is rejected.
+- [x] Unit: Git parsing handles non-repo, clean, and dirty states.
+- [x] Integration: diff preview matches applied content.
+
+### Tests Executed
+
+| Command | Result |
+|---|---|
+| `pnpm lint` | Pass |
+| `pnpm typecheck` | Pass |
+| `pnpm test:unit` | Pass — 28 files, 186 tests |
+| `pnpm test:integration` | Pass — 4 files, 6 tests |
+| `pnpm format:check` | Pass |
+| `pnpm build` | Pass |
+| `pnpm test:extension` | Pass — VS Code 1.144.0 activated Seeker with 9 registered tools |
+| `pnpm package` | Pass — see implementation status for current VSIX size |
 
 ## Acceptance Criteria
 
-- [ ] Read, list, and search work on a fixture workspace.
-- [ ] Patch application is atomic and conflict-safe.
-- [ ] Secret files cannot be read without explicit override.
-- [ ] Traversal and symlink escapes are rejected.
-- [ ] Results are bounded and truncation is explicit.
-- [ ] Tools are testable without a live VS Code instance (host interfaces mocked).
+- [x] Read, list, and search work on a fixture workspace.
+- [x] Patch application is atomic and conflict-safe.
+- [x] Secret files cannot be read without explicit override.
+- [x] Traversal and symlink escapes are rejected.
+- [x] Results are bounded and truncation is explicit.
+- [x] Tools are testable without a live VS Code instance (host interfaces mocked).
 
 ## Risks
 
@@ -175,10 +189,10 @@ export interface GitStatusResult {
 
 ## Definition of Done
 
-- [ ] Acceptance criteria pass.
-- [ ] Security tests pass.
-- [ ] TD-15 (path/permission foundation) is partially closed; full permission enforcement lands in Phase 07.
-- [ ] `TOOL_SYSTEM.md` matches implementation.
+- [x] Acceptance criteria pass.
+- [x] Security tests pass.
+- [x] TD-15 (path/permission foundation) is partially closed; full mode/UI approval enforcement lands in Phase 07.
+- [x] `TOOL_SYSTEM.md` matches implementation.
 
 ## Out of Scope
 
@@ -187,6 +201,16 @@ export interface GitStatusResult {
 - Symbol indexes and semantic retrieval (Phase 08).
 - Browser tools.
 
+## Deviations and Limitations
+
+- Search uses a bounded Node implementation. Ripgrep is not required and is deferred as an optional performance optimization.
+- Git is read-only and reports branch plus staged/unstaged/untracked paths; ahead/behind counts are not exposed yet.
+- Diff preview uses VS Code's diff view and a modal confirmation; the approval path is covered at the host layer with an injected preview callback, while the actual VS Code diff-view UI remains unverified.
+- The extension host defaults to read-only tools and denies privileged actions in untrusted workspaces. Full mode-specific approval UI belongs to Phase 07.
+- `.seekerignore` controls discovery (list/search) rather than blocking explicit reads/writes.
+- Diagnostics are filtered through the same secret/build exclusions, but VS Code diagnostics may be stale.
+- No commit exists because no commit was requested.
+
 ## Completion Status
 
-**Not started.**
+**IMPLEMENTED** — local acceptance passed on 2026-11-02. Extension activation and workspace tools are ready for Phase 06 terminal integration and Phase 07 approval UI/orchestration.
